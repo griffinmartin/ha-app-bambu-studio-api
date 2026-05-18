@@ -1,0 +1,59 @@
+name: Builder
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "bambu-studio-api/**"
+      - ".github/workflows/builder.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Override add-on version (defaults to config.yaml)"
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build amd64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read add-on version from config.yaml
+        id: meta
+        run: |
+          version="${{ github.event.inputs.version }}"
+          if [ -z "${version}" ]; then
+            version=$(grep -E '^version:' bambu-studio-api/config.yaml | sed -E 's/version:\s*"?([^"]+)"?/\1/')
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Building Bambu Studio API add-on version: ${version}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build add-on (amd64)
+        uses: home-assistant/builder@2025.03.0
+        with:
+          args: |
+            --amd64 \
+            --target bambu-studio-api \
+            --docker-hub ghcr.io/${{ github.repository_owner }} \
+            --image ha-app-bambu-studio-api-{arch} \
+            --version ${{ steps.meta.outputs.version }}
