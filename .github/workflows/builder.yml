@@ -30,13 +30,12 @@ jobs:
         run: |
           version="${{ github.event.inputs.version }}"
           if [ -z "${version}" ]; then
-            version=$(grep -E '^version:' bambu-studio-api/config.yaml | sed -E 's/version:\s*"?([^"]+)"?/\1/')
+            version=$(grep -E '^version:' bambu-studio-api/config.yaml | sed -E 's/version:[[:space:]]*"?([^"]+)"?/\1/')
           fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          owner_lc=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${owner_lc}/ha-app-bambu-studio-api-amd64" >> "$GITHUB_OUTPUT"
           echo "Building Bambu Studio API add-on version: ${version}"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,12 +47,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build add-on (amd64)
-        uses: home-assistant/builder@2025.03.0
+      - name: Build and push amd64 image
+        uses: docker/build-push-action@v6
         with:
-          args: |
-            --amd64 \
-            --target bambu-studio-api \
-            --docker-hub ghcr.io/${{ github.repository_owner }} \
-            --image ha-app-bambu-studio-api-{arch} \
-            --version ${{ steps.meta.outputs.version }}
+          context: ./bambu-studio-api
+          file: ./bambu-studio-api/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.image }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
