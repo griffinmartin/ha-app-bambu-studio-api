@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.2
+
+Fix add-on failing to start with `s6-supervise bambu-studio-api: warning:
+unable to spawn ./run (waiting 60 seconds): No such file or directory`.
+
+The conventional HA add-on shebang `#!/usr/bin/with-contenv bashio`
+expects `with-contenv` at `/usr/bin/`, which is where HA base-* images
+put it. The s6-overlay v3 release tarballs we install onto our Ubuntu
+base install it at `/command/with-contenv` only — so the kernel couldn't
+resolve the interpreter and s6 reported the run script as missing even
+though the file was present. Add a symlink so the conventional shebang
+works.
+
 ## 0.1.1
 
 - Use the official Bambu Studio icon and logo instead of placeholder PNGs.

@@ -106,6 +106,14 @@ RUN set -eux; \
     ln -s /usr/lib/bashio/bashio /usr/bin/bashio; \
     rm -rf /tmp/bashio
 
+# s6-overlay v3 installs `with-contenv` at /command/with-contenv, but the
+# conventional HA add-on shebang line `#!/usr/bin/with-contenv bashio`
+# (used by every HA base-* image) expects it at /usr/bin/with-contenv.
+# Without this symlink, s6-supervise fails to spawn the run script with
+# "No such file or directory" because the kernel can't resolve the
+# interpreter path in the shebang.
+RUN ln -s /command/with-contenv /usr/bin/with-contenv
+
 # Wrapper build output + extracted BambuStudio AppImage
 COPY --from=build /src/dist/src      /app/dist
 COPY --from=build /src/node_modules  /app/node_modules
